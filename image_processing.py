@@ -1,13 +1,16 @@
 import cv2 as cv
 import numpy as np
 
+#Download the videos and create a directory called sample_videos
 cap = cv.VideoCapture('sample_videos\Video-2020_1008_185556-1.2_with_liquid.mp4')
+#read the pippette mask
 template = cv.imread("mask.png")
 template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
+#get the contour of the pipette
 template_contour,hierachy = cv.findContours(template, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
 #TODO Get clean threshhold and contour of pipette for contourmatching
-#TODO 
+#TODO Get shape matching to work ie focus the computation on the pipette area
 
 def measure_liquid_level():
 
