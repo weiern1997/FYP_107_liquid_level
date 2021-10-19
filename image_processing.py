@@ -1,16 +1,35 @@
 import cv2 as cv
 import numpy as np
+import matplotlib.pyplot as plt
+import argparse
 
 #Download the videos and create a directory called sample_videos
-cap = cv.VideoCapture('sample_videos\Video-2020_1008_185556-1.2_with_liquid.mp4')
+cap = cv.VideoCapture('Video-2020_1008_185556-1.2_with_liquid.mp4')
+
 #read the pippette mask
 template = cv.imread("mask.png")
 template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
-#get the contour of the pipette
-template_contour,hierachy = cv.findContours(template, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
 #TODO Get clean threshhold and contour of pipette for contourmatching
+
+
 #TODO Get shape matching to work ie focus the computation on the pipette area
+def normalize_filled(img):
+    cnt, heir= cv.findContours(img.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+    # fill shape
+    cv.fillPoly(img, pts=cnt, color=(255,255,255))
+    bounding_rect = cv.boundingRect(cnt[0])
+    img_cropped_bounding_rect = img[bounding_rect[1]:bounding_rect[1] + bounding_rect[3], bounding_rect[0]:bounding_rect[0] + bounding_rect[2]]
+    # resize all to same size
+    img_resized = cv.resize(img_cropped_bounding_rect, (300, 300))
+    return img_resized
+
+imgs = [template]
+imgs = [normalize_filled(i) for i in imgs]
+
+for i in range(1, 2):
+    plt.subplot(2, 3, i), plt.imshow(imgs[i - 1], cmap='gray')
+    print(cv.matchShapes(imgs[0], imgs[i - 1], 1, 0.0))
 
 def measure_liquid_level():
 
@@ -32,12 +51,22 @@ def measure_liquid_level():
 
         #return_image = cv.adaptiveThreshold(return_image,255,cv.ADAPTIVE_THRESH_MEAN_C,\
             #cv.THRESH_BINARY,21,10)
-        ret,return_image = cv.threshold(return_image,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+##        ret,return_image = cv.threshold(return_image,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
         #return_image = cv.adaptiveThreshold(return_image,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,\cv.THRESH_BINARY,11,2)
+
+                ##Adaptive Threshold
+        thresh = cv.adaptiveThreshold(return_image, 255,
+	cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, 4)
 
         #find canny edges
         canny_threshold_1, canny_threshold_2 = find_parameters_for_canny_edge(return_image)
         return_image = cv.Canny(return_image, canny_threshold_1, canny_threshold_2)
+
+##        #highlight foreground
+##        masked = cv.bitwise_and(frame, frame, mask=return_image)
+##        cv.imshow("Output", masked)
+##        cv.waitKey(0)
+
 
         contours, hierarchy = cv.findContours(return_image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
