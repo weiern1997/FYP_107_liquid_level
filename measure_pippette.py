@@ -2,6 +2,34 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 
+def find_contour1(fill):
+        """
+        Given an image find a closed image that tries to eliminate non-horizontal lines
+
+        :param fill: numpy.ndarray: image to find the contour of
+        :return: closed: black and white image, where detected contours are in white
+        """
+        # get these values from the object's attributes
+        morph_dilate_kernel_size = (7, 7)
+        morph_rect_kernel_size = (6, 1)
+
+        return_image = fill
+
+        return_image = cv.cvtColor(return_image, cv.COLOR_BGR2GRAY)
+        # apply histogram equalization
+        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        return_image = clahe.apply(return_image)
+        canny_threshold_1, canny_threshold_2 = find_parameters_for_canny_edge(return_image)
+        return_image = cv.Canny(return_image, canny_threshold_1, canny_threshold_2)
+        return_image = cv.morphologyEx(return_image, cv.MORPH_DILATE, morph_dilate_kernel_size)
+
+        # create a horizontal structural element;
+        horizontal_structure = cv.getStructuringElement(cv.MORPH_RECT, morph_rect_kernel_size)
+        # to the edges, apply morphological opening operation to remove vertical lines from the contour image
+        return_image = cv.morphologyEx(return_image, cv.MORPH_OPEN, horizontal_structure)
+
+        return return_image
+
 def find_contour(fill):
         """
         Given an image find a closed image that tries to eliminate non-horizontal lines
@@ -10,28 +38,36 @@ def find_contour(fill):
         :return: closed: black and white image, where detected contours are in white
         """
         # get these values from the object's attributes
-        morph_rect_kernel_size = np.ones((5,1),np.uint8)
-        kernel = np.ones((9,9),np.uint8)
+        morph_rect_kernel_size = np.ones((8,1),np.uint8)
 
         return_image = fill
         return_image = cv.cvtColor(return_image, cv.COLOR_BGR2GRAY)
         #threshold to binary
         return_image = cv.adaptiveThreshold(blur,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,\
             cv.THRESH_BINARY,11,2)
+
         #remove noise
+        kernel = np.ones((5,5),np.uint8)
         return_image = cv.morphologyEx(return_image, cv.MORPH_OPEN, kernel)
+
         #get canny edges
         canny_threshold_1, canny_threshold_2 = find_parameters_for_canny_edge(return_image)
         return_image = cv.Canny(return_image, canny_threshold_1, canny_threshold_2)
 
+
+
         #merge lines
+        kernel = np.ones((3,3),np.uint8)
         return_image = cv.morphologyEx(return_image, cv.MORPH_CLOSE, kernel)
 
         # create a horizontal structural element;
+        kernel = np.ones((1,5),np.uint8)
+        return_image = cv.morphologyEx(return_image, cv.MORPH_OPEN, kernel)
 
+        kernel = np.ones((3,5),np.uint8)
+        return_image = cv.morphologyEx(return_image, cv.MORPH_CLOSE, kernel)
         # to the edges, apply morphological opening operation to remove vertical lines from the contour image
-        #return_image = cv.erode(return_image, morph_rect_kernel_size, iterations = 4)
-        return_image = cv.morphologyEx(return_image, cv.MORPH_OPEN, morph_rect_kernel_size)
+        #return_image = cv.erode(return_image, morph_rect_kernel_size, iterations = 3)
         #return_image = cv.dilate(return_image,horizontal_structure,iterations=4)
         return return_image
 
@@ -43,12 +79,6 @@ def find_parameters_for_canny_edge(image, sigma=0.33):
         upper = int(min(255, (1.0 + sigma) * median))
         return lower, upper
 
-
-
-#read the pippette mask
-template = cv.imread("mask.png",0)
-template = cv.resize(template,None,fx=0.2,fy=0.2,interpolation = cv.INTER_AREA)
-t_cont,_ = cv.findContours(template, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
 
 img = cv.imread("..\sample_images\photo_2021-10-27_00-59-26.jpg")
@@ -70,7 +100,7 @@ for i in corners:
 cv.circle(img,(x,y),3,255,-1)
 
 cont,_ = cv.findContours(th3, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-hor = find_contour(img)
+hor = find_contour1(img)
 y,x = th3.shape
 lines = cv.HoughLinesP(hor,1,np.pi/180,int(0.005*x),minLineLength=0.1*x,maxLineGap=0.05*x)
 if lines is not None:
@@ -79,7 +109,6 @@ if lines is not None:
         distance = np.sqrt((y2-y1)**2 + (x2-x1)**2)
         angle = np.arctan2(y2 - y1, x2 - x1) * 180. / np.pi
         if abs(angle) < 4.5:
-            cv.putText(img,str(distance),(x1,y1), cv.FONT_HERSHEY_SIMPLEX, 0.5,(255,255,255),1,cv.LINE_AA)
             cv.line(img,(x1,y1),(x2,y2),(0,255,0),2)
 
 
