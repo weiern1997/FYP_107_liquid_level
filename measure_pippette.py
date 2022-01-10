@@ -2,15 +2,15 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 from pyimagesearch.shapedetector import ShapeDetector
+import os
 
 img = cv.imread("../sample_images/photo_2021-10-27_00-59-28.jpg")
 
 #Find all files in directory ../sample_images/ and store in an array
 def find_files(directory):
-    import os
     files = []
     for file in os.listdir(directory):
-        if file.endswith(".jpg"):
+        if file.endswith(".jpg") or file.endswith(".png"):
             files.append(file)
     return files
 
@@ -27,7 +27,6 @@ def find_horizontal_edges(fill):
 
         return_image = fill
 
-        return_image = cv.cvtColor(return_image, cv.COLOR_BGR2GRAY)
         # apply histogram equalization
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         return_image = clahe.apply(return_image)
@@ -116,7 +115,7 @@ def lowest_corner(fill):
                 x,y = x1,y1
     cv.circle(img,(x,y),3,255,-1)
 
-def find_liquid_level(edge_image):
+def find_liquid_level_height(edge_image):
     """
     Given image of horizontal edges.
     Split the image into sections 3 pixels high, and find the section with the highest white pixel count and return the height of the section
@@ -136,27 +135,33 @@ def find_liquid_level(edge_image):
             max_white_index = i
     return max_white_index*3
 
+
+def find_liquid_level(image_path):
+    """
+    Driver function to find the liquid level of the pipette given image_path
+    Outputs the original image with a line drawn on the liquid level
+    """
+    #Read image
+    img = cv.imread(image_path)
+    #Apply threshold
+    thr = thresh_image(img)
+    #Find the contour of the pipette
+    contour = find_horizontal_edges(thr)
+    #Find the height of the liquid level
+    height = find_liquid_level_height(contour)
+    #Draw a line on the image
+    cv.line(img,(0,height),(img.shape[1],height),(255,0,0),2)
+    #Save image in output_images folder +'_liquid_level.jpg'
+    path = "D:\Downloads\School\Y4S1\FYP\sample_images\output_images"
+    cv.imwrite( os.path.join(path,image_path[:-4]+'_liquid_level.jpg') ,img)
+
 def main():
-
-    th3 = thresh_image(img)
-
-    lowest_corner(th3)
-
-
-    cont,_ = cv.findContours(th3, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-
-    hor = find_horizontal_edges(img)
-
-    height = find_liquid_level(hor)
-    #find dimensions of img
-    y,x = th3.shape
-    #opencv draw a line on the image img at height=height
-    cv.line(img,(0,height),(x,height),(0,0,255),2)
-
-    cv.imshow('img',img)
-    cv.imshow('th3',th3)
-    cv.imshow('hor',hor)
-    k = cv.waitKey(0)
+    images = find_files("../sample_images/")
+    path = "D:\Downloads\School\Y4S1\FYP\sample_images"
+    os.chdir(path)
+    print(images)
+    for image in images:
+        find_liquid_level(image)
 
 if __name__ == '__main__':
     main()
