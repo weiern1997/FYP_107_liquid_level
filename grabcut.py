@@ -7,7 +7,7 @@ def find_pipette(img, mask):
     mask = cv2.resize(mask, (width,height))
 
     #set mask to foreground and background
-    mask[mask>0] = cv2.GC_FGD
+    mask[mask>0] = cv2.GC_PR_FGD
     mask[mask==0] = cv2.GC_BGD
 
 
@@ -23,4 +23,4 @@ def find_pipette(img, mask):
         0, 1)
     outputMask = (outputMask * 255).astype("uint8")
 
-    return outputMask
+    return cv2.bitwise_and(img, img, mask=outputMask)
