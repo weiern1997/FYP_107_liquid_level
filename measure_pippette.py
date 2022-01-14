@@ -1,10 +1,14 @@
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
-from pyimagesearch.shapedetector import ShapeDetector
 import os
+import grabcut
 
-img = cv.imread("../sample_images/photo_2021-10-27_00-59-28.jpg")
+
+
+mask = cv.imread("mask_copy.png", 0)
+
+
 
 #Find all files in directory ../sample_images/ and store in an array
 def find_files(directory):
@@ -135,7 +139,6 @@ def find_liquid_level_height(edge_image):
             max_white_index = i
     return max_white_index*3
 
-
 def find_liquid_level(image_path):
     """
     Driver function to find the liquid level of the pipette given image_path
@@ -143,21 +146,27 @@ def find_liquid_level(image_path):
     """
     #Read image
     img = cv.imread(image_path)
+    ROI = grabcut.find_pipette(img,mask)
     #Apply threshold
-    thr = thresh_image(img)
+    thr = thresh_image(ROI)
     #Find the contour of the pipette
     contour = find_horizontal_edges(thr)
     #Find the height of the liquid level
     height = find_liquid_level_height(contour)
     #Draw a line on the image
     cv.line(img,(0,height),(img.shape[1],height),(255,0,0),2)
-    #Save image in output_images folder +'_liquid_level.jpg'
+    #Save image in output_images_path
     path = "D:\Downloads\School\Y4S1\FYP\sample_images\output_images"
     cv.imwrite( os.path.join(path,image_path[:-4]+'_liquid_level.jpg') ,img)
+    cv.imshow('ROI',ROI)
+    cv.imshow('contour',contour)
+    cv.waitKey(0)
 
 def main():
-    images = find_files("../sample_images/")
+    #Path of input input pictures
     path = "D:\Downloads\School\Y4S1\FYP\sample_images"
+
+    images = find_files(path)
     os.chdir(path)
     print(images)
     for image in images:
