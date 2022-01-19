@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import argparse
 
 #Download the videos and create a directory called sample_videos
-cap = cv.VideoCapture('Video-2020_1008_185556-1.2_with_liquid.mp4')
+#cap = cv.VideoCapture('Video-2020_1008_185556-1.2_with_liquid.mp4')
+cap = cv.VideoCapture('..\sample_videos\Video-2020_1008_185556-1.2_with_liquid.mp4')
 
 #read the pippette mask
 template = cv.imread("mask.png")
@@ -14,6 +15,7 @@ template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
 
 
 #TODO Get shape matching to work ie focus the computation on the pipette area
+
 def normalize_filled(img):
     cnt, heir= cv.findContours(img.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
     # fill shape
@@ -51,12 +53,12 @@ def measure_liquid_level():
 
         #return_image = cv.adaptiveThreshold(return_image,255,cv.ADAPTIVE_THRESH_MEAN_C,\
             #cv.THRESH_BINARY,21,10)
-##        ret,return_image = cv.threshold(return_image,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+        ##ret,return_image = cv.threshold(return_image,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
         #return_image = cv.adaptiveThreshold(return_image,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,\cv.THRESH_BINARY,11,2)
 
                 ##Adaptive Threshold
         thresh = cv.adaptiveThreshold(return_image, 255,
-	cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, 4)
+	                                cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, 4)
 
         #find canny edges
         canny_threshold_1, canny_threshold_2 = find_parameters_for_canny_edge(return_image)
@@ -65,7 +67,7 @@ def measure_liquid_level():
 ##        #highlight foreground
 ##        masked = cv.bitwise_and(frame, frame, mask=return_image)
 ##        cv.imshow("Output", masked)
-##        cv.waitKey(0)
+##        
 
 
         contours, hierarchy = cv.findContours(return_image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
@@ -86,7 +88,10 @@ def measure_liquid_level():
         return_image = cv.drawContours(return_image, cont, -1, (255,0,0), 3)
 
         cv.imshow('frame', return_image)
-        if cv.waitKey(1) == ord('q'):
+        key = cv.waitKey(0)
+        while key not in [ord('q'), ord('k')]:
+            key = cv.waitKey(0)
+        if key == ord('q'):
             break
     cap.release()
     cv.destroyAllWindows()
