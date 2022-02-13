@@ -1,3 +1,4 @@
+import re
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
@@ -108,16 +109,17 @@ def lowest_corner(fill):
     """
     Given an image, find the lowest corner of the pipette
     """
-    global img
-    #Find bottom of pipette using corner detection
-    corners = cv.goodFeaturesToTrack(fill,25,0.01,10)
-    corners = np.int0(corners)
-    x, y = 0,0
-    for i in corners:
-        x1,y1 = i.ravel()
-        if y1 > y:
-                x,y = x1,y1
-    cv.circle(img,(x,y),3,255,-1)
+    nz = np.argwhere(fill)
+    Y, X,_ = nz[-1]
+    return X,Y
+
+def highest_corner(fill):
+    """
+    Given an image, find the highest corner of the pipette
+    """
+    nz = np.argwhere(fill)
+    Y, X,_ = nz[0]
+    return X,Y
 
 def find_liquid_level_height(edge_image):
     """
@@ -139,28 +141,43 @@ def find_liquid_level_height(edge_image):
             max_white_index = i
     return max_white_index*3
 
-def find_liquid_level(image_path):
+def find_liquid_level(ROI):
     """
     Driver function to find the liquid level of the pipette given image_path
     Outputs the original image with a line drawn on the liquid level
     """
-    #Read image
-    img = cv.imread(image_path)
-    ROI = grabcut.find_pipette(img,mask)
     #Apply threshold
     thr = thresh_image(ROI)
     #Find the contour of the pipette
     contour = find_horizontal_edges(thr)
     #Find the height of the liquid level
     height = find_liquid_level_height(contour)
-    #Draw a line on the image
-    cv.line(img,(0,height),(img.shape[1],height),(255,0,0),2)
-    #Save image in output_images_path
-    path = "D:\Downloads\School\Y4S1\FYP\sample_images\output_images"
-    cv.imwrite( os.path.join(path,image_path[:-4]+'_liquid_level.jpg') ,img)
-    cv.imshow('ROI',ROI)
-    cv.imshow('contour',contour)
-    cv.waitKey(0)
+    return height
+
+def grabcut_pipette(image):
+    """
+    Given an image, find the pipette using grabcut
+    """
+    #Read image
+    img = cv.imread(image)
+    #Find the pipette using grabcut
+    ROI = grabcut.find_pipette(img,mask)
+    return ROI
+
+def return_distance(img):
+    #TODO: Calculate distance from webcam to pipette
+    return 5
+
+def return_liquid_level(bottom_point, liquid_level, distance):
+    #Ratio to be adjusted
+    distance_constant = 0.5
+    liquid_column_height = liquid_level - bottom_point
+    return liquid_column_height*distance*distance_constant
+
+def pipette_empty(bottom_level, liquid_level, top_level):
+    total_pixel_height = top_level - bottom_level
+    distance_to_top = top_level - liquid_level
+    return distance_to_top/total_pixel_height > 0.95
 
 def main():
     #Path of input input pictures
@@ -168,9 +185,15 @@ def main():
 
     images = find_files(path)
     os.chdir(path)
-    print(images)
-    for image in images:
-        find_liquid_level(image)
+    for image_path in images:
+        img = grabcut_pipette(image_path)
+        liquid_level = find_liquid_level(img)
+        bottom_x, bottom_y = lowest_corner(img)
+        top_x, top_y = highest_corner(img)
+        if not pipette_empty(bottom_y, liquid_level, top_y):
+            print(return_liquid_level(bottom_y, liquid_level, return_distance(img)))
+
+        
 
 if __name__ == '__main__':
     main()
