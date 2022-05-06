@@ -1,4 +1,3 @@
-import re
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,7 +5,7 @@ import os
 import grabcut
 
 
-
+DEBUG = False
 mask = cv.imread("mask_copy.png", 0)
 
 
@@ -110,16 +109,16 @@ def lowest_corner(fill):
     Given an image, find the lowest corner of the pipette
     """
     nz = np.argwhere(fill)
-    Y, X,_ = nz[-1]
-    return X,Y
+    Y, _,_ = nz[-1]
+    return Y
 
 def highest_corner(fill):
     """
     Given an image, find the highest corner of the pipette
     """
     nz = np.argwhere(fill)
-    Y, X,_ = nz[0]
-    return X,Y
+    Y, _,_ = nz[0]
+    return Y
 
 def find_liquid_level_height(edge_image):
     """
@@ -127,19 +126,19 @@ def find_liquid_level_height(edge_image):
     Split the image into sections 3 pixels high, and find the section with the highest white pixel count and return the height of the section
     """
     #Split the image into sections
-    height, width = edge_image.shape
+    height, _ = edge_image.shape
     sections = []
     for i in range(0,height,3):
         sections.append(edge_image[i:i+3,:])
     #Find the section with the highest white pixel count
     max_white = 0
     max_white_index = 0
-    for i in range(len(sections)):
+    for i in range(int(0.1*len(sections)),int(0.9*len(sections))):
         white = np.sum(sections[i])
         if white > max_white:
             max_white = white
             max_white_index = i
-    return max_white_index*3
+    return (max_white_index)*3, max_white
 
 def find_liquid_level(ROI):
     """
@@ -151,8 +150,8 @@ def find_liquid_level(ROI):
     #Find the contour of the pipette
     contour = find_horizontal_edges(thr)
     #Find the height of the liquid level
-    height = find_liquid_level_height(contour)
-    return height
+    height, num_white = find_liquid_level_height(contour)
+    return height, num_white
 
 def grabcut_pipette(image):
     """
@@ -160,25 +159,46 @@ def grabcut_pipette(image):
     """
     #Read image
     img = cv.imread(image)
+    # img = cv.cvtColor(img, cv.COLOR_BGR2YCrCb)
+    # img[:,:,0] = cv.equalizeHist(img[:,:,0])
+    # img = cv.cvtColor(img, cv.COLOR_YCrCb2BGRa)
+    # cv.imshow('img',img)
+    # cv.waitKey(0)
     #Find the pipette using grabcut
     ROI = grabcut.find_pipette(img,mask)
     return ROI
 
-def return_distance(img):
+def return_distance(img, lowest_corner_y):
     #TODO: Calculate distance from webcam to pipette
-    return 5
+    #Given outline of pipette shape, find the distance from the webcam to the pipette
+    #100 pixels up from bottom point, find number of horizontal pixels
+    distance_constant = 0.0075
+    y = lowest_corner_y - 100
+    x = np.argwhere(img[y,:,0])
+    num_lit_pixels = x.shape[0]
+    distance = num_lit_pixels * distance_constant
+    return distance
 
-def return_liquid_level(bottom_point, liquid_level, distance):
+def return_liquid_level(img, bottom_point, liquid_level):
     #Ratio to be adjusted
-    distance_constant = 0.5
-    liquid_column_height = liquid_level - bottom_point
-    return liquid_column_height*distance*distance_constant
+    ratio = 0.0055
+    liquid_column_height = bottom_point - liquid_level* ratio
+    radius = np.argwhere(img[liquid_level,:,0]).shape[0]* ratio
+    volume = 0.666 * 3.1415 * radius**3 * liquid_column_height
+    return volume
 
 def pipette_empty(bottom_level, liquid_level, top_level):
-    total_pixel_height = top_level - bottom_level
-    distance_to_top = top_level - liquid_level
-    return distance_to_top/total_pixel_height > 0.95
+    total_pixel_height = bottom_level - top_level
+    distance_to_top = liquid_level - top_level
+    return distance_to_top/total_pixel_height < 0.1 
 
+def equalise_histogram(img):
+    ycrcb = cv.cvtColor(img,cv.COLOR_BGR2YCrCb)
+    channels = cv.split(ycrcb)
+    cv.equalizeHist(channels[0],channels[0])
+    cv.merge(channels,ycrcb)
+    cv.cvtColor(ycrcb,cv.COLOR_YCrCb2BGR,img)
+    return img
 def main():
     #Path of input input pictures
     path = "D:\Downloads\School\Y4S1\FYP\sample_images"
@@ -188,12 +208,26 @@ def main():
     for image_path in images:
         img = grabcut_pipette(image_path)
         liquid_level = find_liquid_level(img)
-        bottom_x, bottom_y = lowest_corner(img)
-        top_x, top_y = highest_corner(img)
+        bottom_y = lowest_corner(img)
+        top_y = highest_corner(img)
+        if DEBUG:
+            #Draw line at liquid level height
+            cv.line(img,(0,liquid_level),(img.shape[1],liquid_level),(0,0,255),2)
+            #save image
+            #change save dir to output_images
+            save_path = os.path.join(path,"output_images",image_path[:-4]+"_output.jpg")
+            cv.imwrite(save_path,img)
         if not pipette_empty(bottom_y, liquid_level, top_y):
-            print(return_liquid_level(bottom_y, liquid_level, return_distance(img)))
+            distance = return_distance(img, bottom_y)
+            volume = return_liquid_level(img, bottom_y, liquid_level, distance)
+            print(volume)
+            save_path = os.path.join(path,"output_images",str(volume)+".jpg")
+            cv.line(img,(0,liquid_level),(img.shape[1],liquid_level),(0,0,255),2)
+            cv.imwrite(save_path,img)
+            #print(return_liquid_level(bottom_y, liquid_level, return_distance(img)))
 
         
 
 if __name__ == '__main__':
     main()
+
